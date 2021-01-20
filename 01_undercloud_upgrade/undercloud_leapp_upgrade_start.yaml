@@ -1,0 +1,97 @@
+---
+- name: Starting Leapp upgrade procedure in Undercloud
+  hosts: undercloud
+  user: stack
+  become: yes
+  tasks:
+    - name: Running the Leapp command with the pre-upgrade checks 
+      shell: |
+         sudo leapp preupgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms \
+         --enablerepo rhel-8-for-x86_64-appstream-eus-rpms \
+         --enablerepo fast-datapath-for-rhel-8-x86_64-rpms \
+         --enablerepo ansible-2.9-for-rhel-8-x86_64-rpms
+      register: pre_upgrade_check
+      tags:
+        - leap_pre_upgrade
+    
+    - name: Exit and notify user if Leapp pre-upgrade checks command exits with errors
+      fail:
+        msg: "Error: Leapp Pre-Upgrade Checks Failed. Check the directory /var/log/leapp for any errors."
+      when: pre_upgrade_check.rc != 0
+      delegate_to: localhost
+      tags:
+        - leap_pre_upgrade
+
+    # Pause and prompt the user before starting the real upgrade
+    - pause:
+        prompt: "Starting the Leapp upgrade. Do you want to proceed ? (yes/no)"
+      register: confirm_start
+      delegate_to: localhost
+      tags:
+        - leap_upgrade_start
+
+    - name: "Aborting upgrade on user choice..."
+      fail:
+        msg: "User canceled procedure. Exiting playbook now"
+      when: confirm_start.user_input == "no" or confirm_start.user_input == "n"
+      delegate_to: localhost
+      tags:
+        - leap_upgrade_start
+
+    - name: Performing the Leapp upgrade
+      shell: |
+         sudo leapp upgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms \
+         --enablerepo rhel-8-for-x86_64-appstream-eus-rpms \
+         --enablerepo fast-datapath-for-rhel-8-x86_64-rpms \
+         --enablerepo ansible-2.9-for-rhel-8-x86_64-rpms
+      register: post_upgrade_check
+      when: confirm_start.user_input | bool
+      tags:
+        - leap_upgrade_start
+    
+    - name: "Exit and warn user if Leapp upgrade failed"
+      fail:
+        msg: "Error: Leapp Upgrade Failed. Check the directory /var/log/leapp for any errors."
+      when: post_upgrade_check.rc != 0
+      delegate_to: localhost
+      tags:
+        - leap_upgrade_start
+
+    # Pause and prompt the user before rebooting the host
+    - pause:
+        prompt: "Leapp upgrade has been completed. Do you want to reboot at this time? (yes/no)"
+      when: post_upgrade_check.rc == 0
+      register: confirm_reboot
+      delegate_to: localhost
+      tags:
+        - leap_upgrade_start
+
+    - name: Rebooting after Leapp upgrade
+      shell: > 
+        sleep 5 && systemctl reboot
+      async: 1
+      poll: 0
+      ignore_errors: true
+      when: confirm_reboot.user_input | bool
+      tags:
+        - leap_upgrade_start
+
+    - name: Wait for host to become responsive after reboot
+      wait_for:
+        host: "{{ inventory_hostname }}"
+        port: 22
+        delay: 300
+        timeout: 3600
+      delegate_to: localhost
+      tags:
+        - leap_upgrade_start
+
+    - name: Leapp Upgrade Preparation Complete
+      debug:
+        msg: 
+          - "###########################################################"
+          - "Leapp upgrade on the Undercloud completed. "
+          - "Proceed to the OpenStack 16.1 Software Upgrade Procedure"
+          - "###########################################################"
+      tags:
+        - leap_upgrade_start

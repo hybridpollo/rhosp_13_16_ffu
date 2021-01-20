@@ -1,0 +1,48 @@
+---
+- name: Enable the el7 and osp17 repositories in overcloud nodes
+  hosts: undercloud
+  become: yes
+  user: stack
+  tasks:
+    - name: Get current Satellite registration status
+      command: subscription-manager status
+      register: reg_status
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Install katello consumer CA on host if unregistered
+      yum:
+        name: 'http://satellite.voltron.xyz/pub/katello-ca-consumer-latest.noarch.rpm'
+        state: present
+      register: result
+      until: result is succeeded
+      retries: 10
+      delay: 5
+      when: "'Unknown' in reg_status.stdout"
+
+    - name: Enable Satellite Registration if unregistered
+      redhat_subscription:
+        server_hostname: satellite.voltron.xyz
+        org_id: VXYZ_Labs
+        activationkey: osp-13-ak
+        state: present
+        force_register: yes
+
+    - name: Disable all repositories not required
+      rhsm_repository:
+        name: '*'
+        state: disabled
+      tags: repo_enable
+
+    - name: Enable the configured repositories 
+      rhsm_repository:
+        name: '{{ item | join("") }}'
+        state: enabled
+      tags: repo_enable
+      loop:
+        - rhel-7-server-rpms
+        - rhel-7-server-extras-rpms
+        - rhel-7-server-rh-common-rpms
+        - rhel-ha-for-rhel-7-server-rpms
+        - rhel-7-server-openstack-13-rpms
+        - rhel-7-server-rhceph-3-tools-rpms

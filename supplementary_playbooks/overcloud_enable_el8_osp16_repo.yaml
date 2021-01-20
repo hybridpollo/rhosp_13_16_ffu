@@ -1,0 +1,33 @@
+---
+- name: Enable the el8 and osp16 repositories in overcloud nodes
+  hosts: overcloud
+  become: yes
+  tasks:
+    - name: Enable Satellite Registration if unregistered
+      redhat_subscription:
+        server_hostname: satellite.voltron.xyz
+        org_id: VXYZ_Labs
+        activationkey: osp-13-ak
+        state: present
+        force_register: yes
+        release: 8.2
+
+    - name: Disable all repositories not required
+      rhsm_repository:
+        name: '*'
+        state: disabled
+
+    - name: Enable the configured repositories 
+      rhsm_repository:
+        name: '{{ item }}'
+        state: enabled
+      loop:
+        - rhel-8-for-x86_64-baseos-eus-rpms
+        - rhel-8-for-x86_64-appstream-eus-rpms
+        - rhel-8-for-x86_64-highavailability-eus-rpms
+        - openstack-16.1-for-rhel-8-x86_64-rpms
+        - ansible-2.9-for-rhel-8-x86_64-rpms
+        - advanced-virt-for-rhel-8-x86_64-rpms
+        - fast-datapath-for-rhel-8-x86_64-rpms
+        - rhceph-4-tools-for-rhel-8-x86_64-rpms
+

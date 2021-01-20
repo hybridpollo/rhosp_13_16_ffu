@@ -1,0 +1,25 @@
+- name: Pre-install leapp
+  hosts: overcloud
+  become: yes
+  tasks:
+    - name: Pre-install leapp
+      yum:
+        name:
+          - leapp
+          - leapp-repository
+        state: installed
+    - name: Remove katello-host-tools-fact-plugin
+      yum:
+        name:
+          - katello-host-tools-fact-plugin
+        state: removed
+    - name: Register system
+      import_role:
+        name: redhat-subscription
+      vars:
+        rhsm_activation_key: "osp-13-ak"
+        rhsm_method: "satellite"
+        rhsm_org_id: "VXYZ_Labs"
+        rhsm_server_hostname: "satellite.voltron.xyz"
+        rhsm_baseurl: "https://satellite.voltron.xyz/pulp/repos"
+        rhsm_force_register: True
