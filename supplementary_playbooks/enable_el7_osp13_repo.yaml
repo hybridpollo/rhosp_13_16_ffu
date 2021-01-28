@@ -1,6 +1,6 @@
 ---
 - name: Enable the el7 and osp17 repositories in overcloud nodes
-  hosts: undercloud
+  hosts: overcloud:undercloud
   become: yes
   user: stack
   tasks:
