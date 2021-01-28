@@ -10,7 +10,7 @@
         activationkey: osp-13-ak
         state: present
         force_register: yes
-        release: 8.2
+        release: '8.2'
 
     - name: Disable all repositories not required
       rhsm_repository:
