@@ -148,11 +148,11 @@
           changed_when: false
         - name: Ensure katello consumer CA installed
           yum:
-            name: '{{ rhsm_host }}/pub/katello-ca-consumer-latest.noarch.rpm'
+            name: 'http://{{ rhsm_host }}/pub/katello-ca-consumer-latest.noarch.rpm'
             state: present
-            until: result is succeeded
-            retries: 10
-            delay: 5
+          until: result is succeeded
+          retries: 10
+          delay: 5
           when: "'Unknown' in reg_status.stdout"
         - name: Ensure host registration to Satellite
           redhat_subscription:

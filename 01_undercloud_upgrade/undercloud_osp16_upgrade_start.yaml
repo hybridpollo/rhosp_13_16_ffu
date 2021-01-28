@@ -48,18 +48,22 @@
         sleep 5 && systemctl reboot
       async: 1
       poll: 0
-      ignore_errors: true
 
     - name: Wait for host to become responsive after reboot
-      wait_for_connection:
-        connect_timeout: 5
+      wait_for:
+        host: "{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}"
+        port: 22
+        delay: 60
         timeout: 3600
+      become: false
+      connection: local
 
     - name: Installing OSP16.1 cli tools for Undercloud installation and configuration
       become: true
       dnf:
         name: python3-tripleoclient
         state: installed
+      tags: osp16_upgrade
    
     - name: 'Applying fix: https://access.redhat.com/solutions/5696831'
       shell:
@@ -69,6 +73,7 @@
             mysqld:
              innodb_strict_mode: OFF
           EOF
+      tags: osp16_upgrade
 
     - name: Produce a functional containers image prepare environment file
       shell:
@@ -77,43 +82,47 @@
           parameter_defaults:
             ContainerImagePrepare:
             - push_destination: true
-            set:
-              name_prefix_stein: openstack-
-              name_suffix_stein: ''
-              namespace_stein: registry.redhat.io/rhosp15-rhel8
-              tag_stein: 15.0
-              ceph_namespace: registry.redhat.io/rhceph
-              ceph_tag: latest
-              ceph_image: rhceph-4-rhel8
-              name_prefix: openstack-
-              name_suffix: ''
-              namespace: registry.redhat.io/rhosp-rhel8
-              neutron_driver: openvswitch
-              rhel_containers: false
-            tag_from_label: '{version}-{release}'
+              set:
+                name_prefix_stein: openstack-
+                name_suffix_stein: ''
+                namespace_stein: registry.redhat.io/rhosp15-rhel8
+                tag_stein: 15.0
+                ceph_namespace: registry.redhat.io/rhceph
+                ceph_tag: latest
+                ceph_image: rhceph-4-rhel8
+                name_prefix: openstack-
+                name_suffix: ''
+                namespace: registry.redhat.io/rhosp-rhel8
+                neutron_driver: openvswitch
+                rhel_containers: false
+              tag_from_label: '{version}-{release}'
             ContainerImageRegistryLogin: true
             ContainerImageRegistryCredentials:
               registry.redhat.io:
                 5318211|rhn-gps-ariveral: eyJhbGciOiJSUzUxMiJ9.eyJzdWIiOiIwMGY0MWEzODc3YTc0NzEyYjY1ODcxNTg5MGQ4Yjc4YSJ9.vQHC_hsKDxGTiZ8ilJyCBsmYUr1nCpznXHI_hvNiqBA2_WyMr-FXvi9GOVHN8AF0_2LCjTgJAgijSLZuRJhav7faFsnovuWvCJ7Os4-BpnoSHFzKX_kwsV8suPzl9FxQnezpgbE6gMUp2PVg0wpYvB9r9cC3vnF16vRXbqjM9vF-U-h26vAhWYONthgO8WWaOTILCJtGAe1kUZk9STxspFTIhmmw8G3xIhgnCEBEcQPAAYQpW4jNBj0JtoFHBVukxs6CFiczZ_z_EL2E88zD6M_Xo4n-DTrmmVI4lxbjCo_Z2lxz0ws9Y81hnMagsXHP6Waod1tvVIWIvh9p8iWBuz8Z4EDO1M5g-RIWkj3RhNypgufUM9coBTgSJVpTljh3IvaQlV_AaZAmm6ObBkTzBZGRyik38nqbA5WUkjzN8TlIphjecpp2D-RVOtF7pzXSNVPjEPGY_BKaz-_UrZdNvO7stQw0jq7C5h5OpyIIrLNqh-j-QW7glNcF14o6ItizoH5pF74gaXHB_QWUfXcGa_zQTtuvjlIl4vpvKuHI1igw-p4VRJMfdQgmHeDB0UlPgLmsMeAnml3nQZNx1vqOoMwqfthOv5Ty6LfQm4I7M5-59V2j4DkNQp4gqIcmLKdW5LLFK-RwBb2aHuqkXlh4CJ-cOWZyLjB_sBa6OldVfQ4
           EOF
+      tags: osp16_upgrade
 
     - name: Include hieradata override file in undercloud.conf
       lineinfile:
         path: /home/stack/undercloud.conf
         regexp: '^#.*hieradata_override.*'
         line: 'hieradata_override = /home/stack/hieradata_override.yaml'
+      tags: osp16_upgrade
 
     - name: Include container image prepare environment in undercloud.conf
       lineinfile:
         path: /home/stack/undercloud.conf
         insertafter: '^\[DEFAULT.*'
         line: 'container_images_file = /home/stack/containers-prepare-parameters.yaml'
+      tags: osp16_upgrade
         
     - name: Update local_interface parameter in undercloud.conf to match re-named NIC
       lineinfile:
         path: /home/stack/undercloud.conf
         regexp: '^local_interface.*'
         line: 'local_interface = em1'
+      tags: osp16_upgrade
 
     - name: Undercloud is ready for the OSP13->OSP16.1 Upgrade 
       debug:
@@ -122,3 +131,4 @@
           - "Proceed to the OpenStack 16.1 Software Upgrade Procedure"
           - "Example: `openstack undercloud upgrade -y`"
           - "###########################################################"
+      tags: osp16_upgrade

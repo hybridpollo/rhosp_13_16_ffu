@@ -60,31 +60,34 @@
     # Pause and prompt the user before rebooting the host
     - pause:
         prompt: "Leapp upgrade has been completed. Do you want to reboot at this time? (yes/no)"
-      when: post_upgrade_check.rc == 0
+      #when: post_upgrade_check.rc == 0
       register: confirm_reboot
       delegate_to: localhost
       tags:
         - leap_upgrade_start
+        - leap_upgrade_post_reboot
 
     - name: Rebooting after Leapp upgrade
       shell: > 
         sleep 5 && systemctl reboot
       async: 1
       poll: 0
-      ignore_errors: true
       when: confirm_reboot.user_input | bool
       tags:
         - leap_upgrade_start
+        - leap_upgrade_post_reboot
 
     - name: Wait for host to become responsive after reboot
       wait_for:
-        host: "{{ inventory_hostname }}"
+        host: "{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}"
         port: 22
         delay: 300
         timeout: 3600
-      delegate_to: localhost
+      become: false
+      connection: local
       tags:
         - leap_upgrade_start
+        - leap_upgrade_post_reboot
 
     - name: Leapp Upgrade Preparation Complete
       debug:
@@ -95,3 +98,4 @@
           - "###########################################################"
       tags:
         - leap_upgrade_start
+        - leap_upgrade_post_reboot
