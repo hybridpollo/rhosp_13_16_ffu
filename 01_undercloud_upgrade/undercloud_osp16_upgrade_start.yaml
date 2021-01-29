@@ -36,27 +36,15 @@
       args:
         warn: false
 
-    - name: Synchronize remaining RHEL7 packages to RHEL8.2
+    - name: Sync remaining RHEL7 packages to RHEL8.2
       shell: >
         sudo dnf distro-sync -y
       retries: 10
       args:
         warn: false
 
-    - name: Rebooting after package synchornization
-      shell: > 
-        sleep 5 && systemctl reboot
-      async: 1
-      poll: 0
-
-    - name: Wait for host to become responsive after reboot
-      wait_for:
-        host: "{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}"
-        port: 22
-        delay: 60
-        timeout: 3600
-      become: false
-      connection: local
+    - name: Rebooting after package sync
+      reboot:
 
     - name: Installing OSP16.1 cli tools for Undercloud installation and configuration
       become: true

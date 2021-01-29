@@ -114,6 +114,7 @@
     - name: Stopping the Undercloud OpenStack services 
       shell: |
         sudo systemctl stop openstack-* httpd haproxy mariadb rabbitmq* docker xinetd
+      ignore_errors: true
 
     - name: Removing OSP13 packages from the Undercloud
       shell: |
