@@ -1,5 +1,5 @@
 # About
-This repository contains a collection of playbooks for automating the tasks
+This repository contains a collection of playbooks for automating *some* of the tasks
 of performing an in-place upgrade of a Red Hat OpenStack Platform environment
 from version 13 to 16.1
 
