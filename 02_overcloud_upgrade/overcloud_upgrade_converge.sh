@@ -12,7 +12,7 @@ if [[ $USER != "stack" ]]; then
   exit 1
 fi
 
-echo 'Running the overcloud upgrade prepare deployment.'
+echo 'Running the overcloud upgrade converge deployment.'
 
 if test -f "${RC_FILE}" ; then
   source ${RC_FILE}
@@ -26,7 +26,7 @@ fi
 ###################################################
 # Deploy
 ###################################################
-openstack overcloud upgrade prepare --templates \
+openstack overcloud upgrade converge --templates \
   -r ${THT_CUSTOM}/roles_data_osp16.yaml \
   -n ${THT_CUSTOM}/network_data.yaml \
   -e ${THT_DEFAULT}/environments/network-isolation.yaml \

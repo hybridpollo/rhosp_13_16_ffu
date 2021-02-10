@@ -1,1 +1,1 @@
- openstack overcloud upgrade run --stack overcloud --limit osp-comp01
+ openstack overcloud upgrade run --stack overcloud --limit osp-comp01 -y

@@ -1,19 +1,21 @@
 ---
-- name: Enable the el7+osp13 repositories 
+- name: Enable the el8+osp16 repositories 
   hosts: undercloud:overcloud
   become: yes
   vars:
     rhsm_host: satellite.voltron.xyz
     rhsm_org: VXYZ_Labs
     rhsm_key: osp-13-ak
-    rhsm_repos:
-      - rhel-7-server-rpms
-      - rhel-7-server-extras-rpms
-      - rhel-7-server-rh-common-rpms
-      - rhel-ha-for-rhel-7-server-rpms
-      - rhel-7-server-openstack-13-rpms
-      - rhel-7-server-rhceph-3-tools-rpms
-
+    rhsm_rel_ver: "8.2"
+    rhsm_repos_enabled:
+      - rhel-8-for-x86_64-baseos-eus-rpms
+      - rhel-8-for-x86_64-appstream-eus-rpms
+      - rhel-8-for-x86_64-highavailability-eus-rpms
+      - openstack-16.1-for-rhel-8-x86_64-rpms
+      - ansible-2.9-for-rhel-8-x86_64-rpms
+      - advanced-virt-for-rhel-8-x86_64-rpms
+      - fast-datapath-for-rhel-8-x86_64-rpms
+      - rhceph-4-tools-for-rhel-8-x86_64-rpms
   tasks:
     - name: Get current Satellite registration status
       command: subscription-manager status
@@ -37,6 +39,7 @@
         org_id: '{{ rhsm_org }}'
         activationkey: '{{ rhsm_key }}'
         state: present
+        release: '{{ rhsm_rel_ver }}'
         force_register: yes
 
     - name: Disable all repositories not required
@@ -47,6 +50,6 @@
 
     - name: Enable the configured repositories 
       rhsm_repository:
-        name: '{{ rhsm_repos }}'
+        name: '{{ rhsm_repos_enabled }}'
         state: enabled
       tags: repo_enable
