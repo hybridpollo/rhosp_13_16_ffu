@@ -1,0 +1,23 @@
+#######
+# This playbook contains the tasks to prepare an Undercloud for the Leapp upgrade
+# this assumes the Undercloud is registered to a valid Satellite server for RPM content.
+# For non-Satellite registred Underclouds you will have to re-factor the tasks for content management 
+# applicable to your enviorment
+#######
+# Documentation
+# https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/16.1/html-single/framework_for_upgrades_13_to_16.1/index#preparing-for-the-undercloud-upgrade
+#######
+---
+- name: Preparing the Undercloud for the Leapp upgrade
+  hosts: overcloud
+  user: heat-admin
+  become: yes
+  tasks:
+    - name: Replace interface name in /etc/os-net-config/config.json
+      replace:
+        path: "{{ item }}"
+        regexp: 'eth'
+        replace: "{{ prefix }}"
+      loop:
+        - "/etc/os-net-config/config.json"   
+

@@ -1,16 +1,7 @@
-#######
-# This playbook contains the tasks to prepare an Undercloud for the Leapp upgrade
-# this assumes the Undercloud is registered to a valid Satellite server for RPM content.
-# For non-Satellite registred Underclouds you will have to re-factor the tasks for content management 
-# applicable to your enviorment
-#######
-# Documentation
-# https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/16.1/html-single/framework_for_upgrades_13_to_16.1/index#preparing-for-the-undercloud-upgrade
-#######
 ---
-- name: Preparing the Undercloud for the Leapp upgrade
-  hosts: undercloud
-  user: stack
+- name: "Preparing the Overcloud for the OSP13->OSP 16.1 upgrade"
+  hosts: overcloud
+  user: heat-admin
   become: yes
   vars:
     prefix: em
@@ -23,22 +14,9 @@
       - rhel-7-server-rh-common-rpms
       - rhel-ha-for-rhel-7-server-rpms
       - rhel-7-server-openstack-13-rpms
-    leap_data_file_url: "http://{{ rhsm_host }}/pub/leapp_upgrade/leapp-data14.tar.gz"
+
   tasks:
-   # Pause and prompt the user before starting 
-    - name: This will start the Leapp upgrade preparation for this host.
-      pause:
-        prompt: "Do you want to proceed ? (yes/no)"
-      register: confirm_start
-      delegate_to: localhost
-
-    - name: "Aborting playbook on user choice..."
-      fail:
-        msg: "User canceled procedure. Exiting playbook now"
-      when: confirm_start.user_input == "no" or confirm_start.user_input == "n"
-      delegate_to: localhost
-
-    - name: "Ensure host has the proper OSP13 repositories enabled before beginning"
+    - name: "[Leapp install prepare] ensure correct OSP13 repositories enabled"
       tags: satellite_registration
       block:
         - name:  Get registration status
@@ -50,6 +28,8 @@
           yum:
             name: 'http://{{ rhsm_host }}/pub/katello-ca-consumer-latest.noarch.rpm'
             state: present
+          register: result
+          until: result is succeeded
           retries: 10
           delay: 5
           when: "'Unknown' in reg_status.stdout"
@@ -60,16 +40,15 @@
             activationkey: '{{ rhsm_key }}'
             state: present
             force_register: yes
-        - name: Ensure all repositories are disabled
+        - name: Ensure all repositories disabled
           rhsm_repository:
             name: '*'
             state: disabled
-        - name: Ensure required OSP13 repositories are enabled
+        - name: Ensure specific OSP13 repositories enabled
           rhsm_repository:
             name: '{{ rhsm_repos }}'
             state: enabled
 
-    # https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/16.1/html-single/framework_for_upgrades_13_to_16.1/index#using-predictable-nic-names-preparing-undercloud
     - set_fact:
         eth_interfaces: "{{ ansible_interfaces | select('match','eth.*') | list }}"
 
@@ -164,100 +143,55 @@
       loop:
         - "/etc/os-net-config/config.json"   
 
-    - name: Rebooting to apply the NIC configuration changes
-      reboot:
-       reboot_timeout: 2000
-
-    #https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/16.1/html-single/framework_for_upgrades_13_to_16.1/index#setting-the-ssh-root-permission-parameter-on-the-undercloud-preparing-undercloud
     - name: Enable PermitRootLogin parameter in /etc/ssh/sshd_config
       lineinfile:
         path: /etc/ssh/sshd_config
         line: PermitRootLogin yes
         create: yes
    
-    # This is only applicable for systems registered to Satellite
     - name: Remove the katello-host-tools-fact-plugin package 
       yum:
         name: katello-host-tools-fact-plugin
         state: absent
 
-    # https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/16.1/html-single/framework_for_upgrades_13_to_16.1/index#upgrading-the-undercloud-operating-system
-    - name: Stopping the Undercloud OpenStack services 
-      shell: |
-        sudo systemctl stop openstack-* httpd haproxy mariadb rabbitmq* docker xinetd
-      ignore_errors: True
-      args:
-        warn: false
-
-    - name: Removing OSP13 packages from the Undercloud
-      shell: |
-        sudo yum -y remove *el7ost* galera* haproxy* \
-          httpd mysql* pacemaker* xinetd python-jsonpointer \
-          qemu-kvm-common-rhev qemu-img-rhev rabbit* \
-          redis* \
-          -- \
-          -*openvswitch* -python-docker -python-PyMySQL \
-          -python-pysocks -python2-asn1crypto -python2-babel \
-          -python2-cffi -python2-cryptography -python2-dateutil \
-          -python2-idna -python2-ipaddress -python2-jinja2 \
-          -python2-jsonpatch -python2-markupsafe -python2-pyOpenSSL \
-          -python2-requests -python2-six -python2-urllib3 \
-          -python-httplib2 -python-passlib -python2-netaddr -ceph-ansible
-      args:
-        warn: false
-
-    - name: Removing content from /etc/httpd and /var/lib/docker 
-      file:
-        path: '{{ item }}'
-        state: absent
-      loop:
-        - /etc/httpd
-        - /var/lib/docker
-
-    # https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/16.1/html-single/framework_for_upgrades_13_to_16.1/index#performing-a-leapp-upgrade-on-the-undercloud
-    - name: Install Leapp packages in the Undercloud
+    - name: "[Leapp install prepare] Ensure Leapp packages installed"
       yum:
         name: leapp
         state: installed
       tags:
         - install_leapp
 
-    - name: Extract required Leapp upgrade files from remote archive
+    - name: "[Leapp install prepare] Extract required Leapp upgrade files from remote archive"
       unarchive:
-        src: '{{ leap_data_file_url }}'
+        src: 'http://{{ rhsm_host }}/pub/leapp_upgrade/leapp-data14.tar.gz'
         dest: /etc/leapp/files
-        remote_src: True
+        remote_src: true
       tags:
         - install_leapp
 
-    - name: Disable Leapp module checks preventing an upgrade
+    - name: "[Leapp install] Disable Leapp module checks preventing an upgrade"
       command: /usr/bin/leapp answer --add --section '{{ item }}'=True
       loop:
+        - 'remove_pam_krb5_module_check.confirm'
         - 'remove_pam_pkcs11_module_check.confirm'
       tags:
         - install_leapp
 
-    - name: Configure Leapp transaction options
+    - name: "[Leapp install] Configure Leapp transaction options"
       shell: |
         echo 'openvswitch2.11' | sudo tee -a /etc/leapp/transaction/to_remove;
         echo 'openvswitch2.13' | sudo tee -a /etc/leapp/transaction/to_install;
-      args:
-        warn: false
       tags:
         - install_leapp
-
-    - name: Leapp upgrade preparation complete
+ 
+    - name: Leapp Upgrade Preparation Complete
+      run_once: true
       debug:
         msg: 
           - "############################################################"
-          - "Leapp preparation on the Undercloud completed. Next steps:"
-          - "* Perform a Leapp pre-upgrade check: "
-          - "sudo leapp preupgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms --enablerepo rhel-8-for-x86_64-appstream-eus-rpms --enablerepo fast-datapath-for-rhel-8-x86_64-rpms --enablerepo ansible-2.9-for-rhel-8-x86_64-rpms"
-          - "If successful proceed with the Leapp upgrade on the host:"
-          - "sudo leapp upgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms --enablerepo rhel-8-for-x86_64-appstream-eus-rpms --enablerepo fast-datapath-for-rhel-8-x86_64-rpms --enablerepo ansible-2.9-for-rhel-8-x86_64-rpms"
-          - "The Leapp upgrade will complete in approximately 30-45 minutes. The Undercloud will be rebooted as a result."
-          - "Do not proceed with the Undercloud upgrade until the Leapp upgrade has been completed successfully."
-          - "This is automated on the playbook 01_undercloud_upgrade/step_2_undercloud_leapp_upgrade_run.yaml"
+          - "Leapp preparation completed. Next steps:"
+          - "* Reboot nodes with kernel based nic name changes"
+          - "* Begin the Overcloud upgrade preparation "
           - "############################################################"
       tags:
         - install_leapp

@@ -15,6 +15,8 @@
       - rhel-ha-for-rhel-7-server-rpms
       - rhel-7-server-openstack-13-rpms
       - rhel-7-server-rhceph-3-tools-rpms
+      - rhel-7-server-rhceph-3-mon-rpms
+      - rhel-7-server-rhceph-3-osd-rpms
 
   tasks:
     - name: "[Leapp install prepare] ensure correct OSP13 repositories enabled"
@@ -156,7 +158,7 @@
       tags:
         - install_leapp
 
-    - name: "[Leapp Install] Disable Leapp module checks preventing an upgrade"
+    - name: "[Leapp install] Disable Leapp module checks preventing an upgrade"
       command: /usr/bin/leapp answer --add --section '{{ item }}'=True
       loop:
         - 'remove_pam_krb5_module_check.confirm'
@@ -164,7 +166,7 @@
       tags:
         - install_leapp
 
-    - name: "[Leapp Install] Configure Leapp transaction options"
+    - name: "[Leapp install] Configure Leapp transaction options"
       shell: |
         echo 'openvswitch2.11' | sudo tee -a /etc/leapp/transaction/to_remove;
         echo 'openvswitch2.13' | sudo tee -a /etc/leapp/transaction/to_install;

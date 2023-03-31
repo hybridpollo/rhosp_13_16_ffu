@@ -1,2 +1,9 @@
 [undercloud]
-osp-dir.voltron.xyz
+osp-dir.voltron.xyz ansible_user=stack
+
+[overcloud]
+osp-ctrl01.voltron.xyz ansible_user=heat-admin
+osp-ctrl02.voltron.xyz ansible_user=heat-admin
+osp-ctrl03.voltron.xyz ansible_user=heat-admin
+osp-comp01.voltron.xyz ansible_user=heat-admin
+osp-comp02.voltron.xyz ansible_user=heat-admin

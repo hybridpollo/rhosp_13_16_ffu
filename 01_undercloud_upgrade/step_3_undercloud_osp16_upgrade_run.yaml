@@ -13,7 +13,6 @@
       - ansible-2.9-for-rhel-8-x86_64-rpms
       - advanced-virt-for-rhel-8-x86_64-rpms
       - fast-datapath-for-rhel-8-x86_64-rpms
-      - rhceph-4-tools-for-rhel-8-x86_64-rpms
 
   tasks:
     - name: "Lock the Undercloud to RHEL {{ rhsm_rel_ver }} version"
@@ -33,7 +32,7 @@
 
     - name: Enable the correct container-tools and virt repository modules
       shell: >
-        sudo dnf module disable -y container-tools:rhel8 ;
+        sudo dnf module disable -y container-tools:rhel8;
         sudo dnf module disable -y virt:rhel; 
         sudo dnf module enable -y container-tools:2.0;
         sudo dnf module enable -y virt:8.2
@@ -58,31 +57,8 @@
         name: python3-tripleoclient
         state: installed
       tags: osp16_upgrade
-   
-    - name: 'Applying fix: https://access.redhat.com/solutions/5696831 for the Undercloud'
-      shell:
-        cmd: |
-          cat <<EOF > /home/stack/hieradata_override.yaml
-          parameter_defaults:
-            tripleo::profile::base::database::mysql::mysql_server_options:
-              mysqld:
-               innodb_strict_mode: OFF
-          EOF
-      tags: osp16_upgrade
-
-    - name: 'Applying fix: https://access.redhat.com/solutions/5696831 for the Overcloud'
-      shell:
-        cmd: |
-          cat <<EOF > /home/stack/overcloud_deployment_templates/hieradata_override.yaml
-          parameter_defaults:
-            ControllerExtraConfig:
-              tripleo::profile::base::database::mysql::mysql_server_options:
-                mysqld:
-                 innodb_strict_mode: OFF
-          EOF
-      tags: osp16_upgrade
-
-    - name: Produce a functional containers image prepare environment file 
+ 
+    - name: Render a containers image prepare environment file 
       shell:
         cmd: |
           cat <<EOF > /home/stack/containers-prepare-parameters.yaml
@@ -102,19 +78,12 @@
                 namespace: registry.redhat.io/rhosp-rhel8
                 neutron_driver: openvswitch
                 rhel_containers: false
-                tag: '16.1.3'
+                tag: 16.1.6
             ContainerImageRegistryLogin: true
             ContainerImageRegistryCredentials:
               registry.redhat.io:
                 5318211|rhn-gps-ariveral: eyJhbGciOiJSUzUxMiJ9.eyJzdWIiOiIwMGY0MWEzODc3YTc0NzEyYjY1ODcxNTg5MGQ4Yjc4YSJ9.vQHC_hsKDxGTiZ8ilJyCBsmYUr1nCpznXHI_hvNiqBA2_WyMr-FXvi9GOVHN8AF0_2LCjTgJAgijSLZuRJhav7faFsnovuWvCJ7Os4-BpnoSHFzKX_kwsV8suPzl9FxQnezpgbE6gMUp2PVg0wpYvB9r9cC3vnF16vRXbqjM9vF-U-h26vAhWYONthgO8WWaOTILCJtGAe1kUZk9STxspFTIhmmw8G3xIhgnCEBEcQPAAYQpW4jNBj0JtoFHBVukxs6CFiczZ_z_EL2E88zD6M_Xo4n-DTrmmVI4lxbjCo_Z2lxz0ws9Y81hnMagsXHP6Waod1tvVIWIvh9p8iWBuz8Z4EDO1M5g-RIWkj3RhNypgufUM9coBTgSJVpTljh3IvaQlV_AaZAmm6ObBkTzBZGRyik38nqbA5WUkjzN8TlIphjecpp2D-RVOtF7pzXSNVPjEPGY_BKaz-_UrZdNvO7stQw0jq7C5h5OpyIIrLNqh-j-QW7glNcF14o6ItizoH5pF74gaXHB_QWUfXcGa_zQTtuvjlIl4vpvKuHI1igw-p4VRJMfdQgmHeDB0UlPgLmsMeAnml3nQZNx1vqOoMwqfthOv5Ty6LfQm4I7M5-59V2j4DkNQp4gqIcmLKdW5LLFK-RwBb2aHuqkXlh4CJ-cOWZyLjB_sBa6OldVfQ4
           EOF
-      tags: osp16_upgrade
-
-    - name: Include hieradata override file in undercloud.conf
-      lineinfile:
-        path: /home/stack/undercloud.conf
-        regexp: '^#.*hieradata_override.*'
-        line: 'hieradata_override = /home/stack/hieradata_override.yaml'
       tags: osp16_upgrade
 
     - name: Include container image prepare environment in undercloud.conf

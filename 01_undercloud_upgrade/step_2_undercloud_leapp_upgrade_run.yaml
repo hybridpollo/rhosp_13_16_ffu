@@ -12,16 +12,19 @@
   hosts: undercloud
   user: stack
   become: yes
+  vars:
+    enable_user_prompt: false
   tasks:
     - name: Running the Leapp pre-upgrade checks
       shell: |
-         sudo leapp preupgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms \
-         --enablerepo rhel-8-for-x86_64-appstream-eus-rpms \
-         --enablerepo fast-datapath-for-rhel-8-x86_64-rpms \
-         --enablerepo ansible-2.9-for-rhel-8-x86_64-rpms
+         sudo -E leapp preupgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms \
+         --enablerepo rhel-8-for-x86_64-appstream-eus-rpms
       register: pre_upgrade_check
       args:
         warn: false
+      environment:
+        LEAPP_UNSUPPORTED: 1
+        LEAPP_DEVEL_TARGET_RELEASE: 8.2
       tags:
         - leap_pre_upgrade
     
@@ -37,6 +40,7 @@
     - pause:
         prompt: "Starting the Leapp upgrade. Do you want to proceed ? (yes/no)"
       register: confirm_start
+      when: enable_user_prompt == true
       delegate_to: localhost
       tags:
         - leap_upgrade_start
@@ -44,21 +48,24 @@
     - name: "Aborting upgrade on user choice..."
       fail:
         msg: "User canceled procedure. Exiting playbook now"
-      when: confirm_start.user_input == "no" or confirm_start.user_input == "n"
+      when: 
+        - (confirm_start.user_input is defined and confirm_start.user_input | bool == false)
+        - enable_user_prompt | bool == true
       delegate_to: localhost
       tags:
         - leap_upgrade_start
 
     - name: Performing the Leapp upgrade
       shell: |
-         sudo leapp upgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms \
-         --enablerepo rhel-8-for-x86_64-appstream-eus-rpms \
-         --enablerepo fast-datapath-for-rhel-8-x86_64-rpms \
-         --enablerepo ansible-2.9-for-rhel-8-x86_64-rpms
+         sudo -E leapp upgrade --debug --enablerepo rhel-8-for-x86_64-baseos-eus-rpms \
+         --enablerepo rhel-8-for-x86_64-appstream-eus-rpms
       args:
         warn: false
+      environment:
+        LEAPP_UNSUPPORTED: 1
+        LEAPP_DEVEL_TARGET_RELEASE: 8.2
+      when: enable_user_prompt == false or (confirm_start.user_input is defined and confirm_start.user_input | bool == true)
       register: post_upgrade_check
-      when: confirm_start.user_input | bool
       tags:
         - leap_upgrade_start
     
@@ -75,6 +82,7 @@
         prompt: "Leapp upgrade has been completed. Do you want to reboot at this time? (yes/no)"
       register: confirm_reboot
       delegate_to: localhost
+      when: enable_user_prompt == true 
       tags:
         - leap_upgrade_start
         - leap_upgrade_post_reboot
@@ -82,12 +90,12 @@
     - name: Rebooting after Leapp upgrade
       reboot:
         reboot_timeout: 2000
-      when: confirm_reboot.user_input | bool
+      when: enable_user_prompt == false or (confirm_reboot.user_input is defined and confirm_reboot.user_input | bool == true)
       tags:
         - leap_upgrade_start
         - leap_upgrade_post_reboot
 
-    - name: Leapp Upgrade Preparation Complete
+    - name: Leapp Upgrade Complete
       debug:
         msg: 
           - "###########################################################"
